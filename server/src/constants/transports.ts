@@ -1,2 +1,6 @@
 // server/src/constants/transports.ts
-export default ['polling', 'websocket', 'webtransport'];
+const TRANSPORTS = ['polling', 'websocket', 'webtransport'] as const;
+
+export type Transport = typeof TRANSPORTS[number];
+
+export default TRANSPORTS;

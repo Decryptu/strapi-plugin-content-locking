@@ -38,12 +38,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "strapi-plugin build",
-    "test:ts:back": "run -T tsc -p server/tsconfig.json",
-    "test:ts:front": "run -T tsc -p admin/tsconfig.json",
-    "verify": "strapi-plugin verify",
-    "watch": "strapi-plugin watch",
-    "watch:link": "strapi-plugin watch:link"
+    "build": "node node_modules/@strapi/sdk-plugin/bin/strapi-plugin.js build",
+    "test:ts:back": "bun x tsc -p server/tsconfig.json",
+    "test:ts:front": "bun x tsc -p admin/tsconfig.json",
+    "verify": "node node_modules/@strapi/sdk-plugin/bin/strapi-plugin.js verify",
+    "watch": "node node_modules/@strapi/sdk-plugin/bin/strapi-plugin.js watch",
+    "watch:link": "node node_modules/@strapi/sdk-plugin/bin/strapi-plugin.js watch:link"
   },
   "dependencies": {
     "@strapi/design-system": "^2.0.0-rc.11",

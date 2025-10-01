@@ -1,44 +1,116 @@
 // server/src/bootstrap.ts
 import type { Core } from '@strapi/strapi';
-import { Server } from 'socket.io';
+import { Server, type Socket } from 'socket.io';
+import type { StrapiWithIO } from './types/strapi';
+import DEFAULT_TRANSPORTS, { type Transport } from './constants/transports';
+
+interface OpenEntityPayload {
+  entityDocumentId: string;
+  entityId: string;
+}
+
+interface CloseEntityPayload {
+  entityId: string;
+  entityDocumentId: string;
+  userId: string | number;
+}
+
+const isValidTransportArray = (value: unknown): value is readonly Transport[] => {
+  if (!Array.isArray(value)) return false;
+  return value.every((item) =>
+    item === 'polling' || item === 'websocket' || item === 'webtransport'
+  );
+};
+
+const validateEntityPayload = (payload: unknown): payload is OpenEntityPayload => {
+  if (!payload || typeof payload !== 'object') return false;
+  const p = payload as Record<string, unknown>;
+  return (
+    typeof p.entityDocumentId === 'string' &&
+    typeof p.entityId === 'string' &&
+    p.entityDocumentId.length > 0 &&
+    p.entityId.length > 0
+  );
+};
+
+const validateClosePayload = (payload: unknown): payload is CloseEntityPayload => {
+  if (!payload || typeof payload !== 'object') return false;
+  const p = payload as Record<string, unknown>;
+  return (
+    typeof p.entityId === 'string' &&
+    typeof p.entityDocumentId === 'string' &&
+    (typeof p.userId === 'string' || typeof p.userId === 'number') &&
+    p.entityId.length > 0 &&
+    p.entityDocumentId.length > 0
+  );
+};
 
 const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
-  const io = new Server(strapi.server.httpServer);
+  const strapiWithIO = strapi as StrapiWithIO;
 
-  io.on('connection', (socket) => {
-    socket.on('openEntity', async ({ entityDocumentId, entityId }) => {
+  // Get configured transports with proper type validation
+  const configuredTransports = strapi.plugin('record-locking').config('transports');
+  const transports = isValidTransportArray(configuredTransports)
+    ? [...configuredTransports]
+    : [...DEFAULT_TRANSPORTS];
+
+  // Initialize Socket.IO with proper configuration
+  const io = new Server(strapi.server.httpServer, {
+    cors: {
+      origin: strapi.config.get('admin.url') || 'http://localhost:1337',
+      credentials: true,
+    },
+    transports,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+  });
+
+  // Authentication middleware
+  io.use(async (socket: Socket, next) => {
+    const token = socket.handshake.auth.token;
+
+    if (!token) {
+      return next(new Error('Authentication token missing'));
+    }
+
+    try {
+      const tokenService = strapi.service('admin::token');
+
+      if (!tokenService?.decodeJwtToken) {
+        return next(new Error('Token service unavailable'));
+      }
+
+      const decoded = await tokenService.decodeJwtToken(token);
+      const userId = decoded?.id || decoded?.payload?.id;
+
+      if (!userId) {
+        return next(new Error('Invalid token'));
+      }
+
+      // Attach user ID to socket for later use
+      socket.data.userId = userId;
+      next();
+    } catch (error) {
+      strapi.log.error('[Record Locking] Authentication error:', error);
+      next(new Error('Authentication failed'));
+    }
+  });
+
+  io.on('connection', (socket: Socket) => {
+    strapi.log.debug(`[Record Locking] Client connected: ${socket.id}`);
+
+    socket.on('openEntity', async (payload: unknown) => {
+      if (!validateEntityPayload(payload)) {
+        strapi.log.warn('[Record Locking] Invalid openEntity payload', { payload });
+        return;
+      }
+
+      const { entityDocumentId, entityId } = payload;
+      const userId = socket.data.userId;
+
       try {
-        const token = socket.handshake.auth.token;
-
-        if (!token) {
-          console.error('[Record Locking] No authentication token provided');
-          socket.disconnect();
-          return;
-        }
-
-        // Get the admin token service using Strapi 5 service API
-        const tokenService = strapi.service('admin::token');
-
-        if (!tokenService?.decodeJwtToken) {
-          console.error('[Record Locking] Token service not available or method missing');
-          socket.disconnect();
-          return;
-        }
-
-        // Decode the JWT token
-        const decoded = await tokenService.decodeJwtToken(token);
-
-        // Handle both possible token structures
-        const userId = decoded?.id || decoded?.payload?.id;
-
-        if (!userId) {
-          console.error('[Record Locking] Invalid token: no user ID found', { decoded });
-          socket.disconnect();
-          return;
-        }
-
         // Check user permissions
-        const usersPermissionsForThisContent = await strapi.db.connection
+        const permissions = await strapi.db.connection
           .select('p.id', 'p.action', 'p.subject')
           .from('admin_permissions AS p')
           .innerJoin('admin_permissions_role_lnk AS prl', 'p.id', 'prl.permission_id')
@@ -46,62 +118,103 @@ const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
           .where('url.user_id', userId)
           .andWhere('p.subject', entityId);
 
-        const userHasAdequatePermissions = usersPermissionsForThisContent.some((perm) =>
-          ['create', 'delete', 'publish'].some((operation) => perm.action.includes(operation))
+        const hasPermission = permissions.some((perm) =>
+          ['create', 'update', 'delete', 'publish'].some((op) => perm.action.includes(op))
         );
 
-        if (userHasAdequatePermissions) {
-          await strapi.db.query('plugin::record-locking.open-entity').create({
-            data: {
-              user: String(userId),
-              entityId,
-              entityDocumentId,
-              connectionId: socket.id,
-            },
-          });
-        } else {
-          console.warn('[Record Locking] User lacks adequate permissions', {
+        if (!hasPermission) {
+          strapi.log.warn('[Record Locking] Insufficient permissions', {
             userId,
             entityId,
-            entityDocumentId,
           });
+          return;
         }
+
+        // Create lock record
+        await strapi.db.query('plugin::record-locking.open-entity').create({
+          data: {
+            user: String(userId),
+            entityId,
+            entityDocumentId,
+            connectionId: socket.id,
+          },
+        });
+
+        strapi.log.debug('[Record Locking] Entity locked', {
+          userId,
+          entityId,
+          entityDocumentId,
+        });
+
+        // Notify other users about the lock
+        socket.broadcast.emit('entityLocked', { entityId, entityDocumentId });
       } catch (error) {
-        console.error('[Record Locking] Error in openEntity:', error);
-        socket.disconnect();
+        strapi.log.error('[Record Locking] Error in openEntity:', error);
       }
     });
 
-    socket.on('closeEntity', async ({ entityId, entityDocumentId, userId }) => {
+    socket.on('closeEntity', async (payload: unknown) => {
+      if (!validateClosePayload(payload)) {
+        strapi.log.warn('[Record Locking] Invalid closeEntity payload', { payload });
+        return;
+      }
+
+      const { entityId, entityDocumentId, userId } = payload;
+
       try {
-        await strapi.db.query('plugin::record-locking.open-entity').deleteMany({
+        const deleted = await strapi.db.query('plugin::record-locking.open-entity').deleteMany({
           where: {
             user: String(userId),
             entityId,
             entityDocumentId,
           },
         });
+
+        if (deleted.count > 0) {
+          strapi.log.debug('[Record Locking] Entity unlocked', {
+            userId,
+            entityId,
+            entityDocumentId,
+          });
+
+          // Notify other users about the unlock
+          socket.broadcast.emit('entityUnlocked', { entityId, entityDocumentId });
+        }
       } catch (error) {
-        console.error('[Record Locking] Error in closeEntity:', error);
+        strapi.log.error('[Record Locking] Error in closeEntity:', error);
       }
     });
 
     socket.on('disconnect', async () => {
       try {
-        await strapi.db.query('plugin::record-locking.open-entity').deleteMany({
+        const deleted = await strapi.db.query('plugin::record-locking.open-entity').deleteMany({
           where: {
             connectionId: socket.id,
           },
         });
+
+        strapi.log.debug(`[Record Locking] Client disconnected: ${socket.id}`, {
+          locksReleased: deleted.count || 0,
+        });
       } catch (error) {
-        console.error('[Record Locking] Error in disconnect:', error);
+        strapi.log.error('[Record Locking] Error in disconnect:', error);
       }
     });
   });
 
   // Clean up any stale locks on startup
-  strapi.db.query('plugin::record-locking.open-entity').deleteMany();
-  (strapi as any).io = io;
+  strapi.db
+    .query('plugin::record-locking.open-entity')
+    .deleteMany()
+    .then(() => {
+      strapi.log.info('[Record Locking] Stale locks cleaned up');
+    })
+    .catch((error) => {
+      strapi.log.error('[Record Locking] Failed to clean stale locks:', error);
+    });
+
+  strapiWithIO.io = io;
+  strapi.log.info('[Record Locking] WebSocket server initialized');
 };
 
 export default bootstrap;
