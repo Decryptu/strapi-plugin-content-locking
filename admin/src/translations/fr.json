@@ -1,0 +1,5 @@
+{
+  "ModalWindow.CurrentlyEditing": "Cet élément est en cours de modification",
+  "ModalWindow.CurrentlyEditingBody": "Cet élément est actuellement en cours de modification par {username}",
+  "ModalWindow.CurrentlyEditing.Button": "Retour"
+}
