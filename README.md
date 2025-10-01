@@ -1,4 +1,9 @@
-# Strapi plugin record-locking
+# Strapi Plugin Record Locking (Community Fork)
+
+> This is a community-maintained fork compatible with Strapi 5.24+
+> Original: <https://github.com/notum-cz/strapi-plugin-record-locking>
+
+## Strapi plugin content-locking
 
 This plugin provides the functionality to prevent data loss in cases where multiple users are simultaneously editing the same record within STRAPI v5.
 
@@ -6,7 +11,7 @@ This plugin provides the functionality to prevent data loss in cases where multi
 
 ![Record Locking Plugin Example](./record-locking.png)
 
-## ⚠️ We've released version 2.0.0 for the Record Locking Plugin.
+## ⚠️ We've released version 2.0.0 for the Record Locking Plugin
 
 Plugin version 2.x is aimed at Strapi V5. If you need support for Strapi V4, please follow the 1.x releases. What's new:
 
@@ -14,13 +19,6 @@ Plugin version 2.x is aimed at Strapi V5. If you need support for Strapi V4, ple
 - Overall code refactor to make it safer & more readable.
 - Strapi V5 support.
   - Records are now matched based on `document_id` attribute.
-
-### Migration from 1.x to 2.x
-
-Since the plugin does not retain any data, we're not providing migration scripts for the database. Strapi should update the columns automatically, however if this does not happen, you can update the columns manually when migrating to Strapi V5:
-
-- column `entityType` has been renamed to `entityId`
-- column `entityIdentifier` has been renamed to `entityDocumentId`
 
 ## 🙉 What does the plugin do for you?
 
@@ -30,17 +28,17 @@ Since the plugin does not retain any data, we're not providing migration scripts
 
 ## 🧑‍💻 Installation
 
-### 1. Install the plugin with your favourite package manager:
+### 1. Install the plugin with your favourite package manager
 
-```
+```bash
 npm i @notum-cz/strapi-plugin-record-locking
 ```
 
-```
+```bash
 yarn add @notum-cz/strapi-plugin-record-locking
 ```
 
-### 2. Create or modify file `config/plugins.js` and include the following code snippet:
+### 2. Create or modify file `config/plugins.js` and include the following code snippet
 
 ```js
 module.exports = ({ env }) => ({
@@ -69,7 +67,7 @@ If you do not specify a transport, the default parameters will be applied:
 DEFAULT_TRANSPORTS: ['polling', 'websocket', 'webtransport'];
 ```
 
-### 3. Enable websocket support by configuring the Strapi middleware.
+### 3. Enable websocket support by configuring the Strapi middleware
 
 In the `config/middlewares.js` file either replace `'strapi::security'` with a middleware object (see the example below) or update your existing configuration accordingly.
 
@@ -106,39 +104,9 @@ module.exports = [
 
 ---
 
-## 🛣️ Road map
-
-Are any of these features significant to you? Please show your support by giving a thumbs up on the linked issues. This will help us assess their priority on the roadmap.
-
-- ✨ [An option to select specific collection types](https://github.com/notum-cz/strapi-plugin-record-locking/issues/46)
-- ✨ ["Takeover" button](https://github.com/notum-cz/strapi-plugin-record-locking/issues/47)
-
-## 🐛 Bugs
-
-We manage bugs through [GitHub Issues](https://github.com/notum-cz/strapi-plugin-record-locking/issues). <br>
-If you're interested in helping us, you would be a rock ⭐.
-
 ## 🧔 Authors
 
-The main star: **Martin Čapek** https://github.com/martincapek <br>
-Original Maintainer: **Ondřej Mikulčík** https://github.com/omikulcik <br>
-Active Maintainer: **Dominik Juriga** https://github.com/dominik-juriga <br>
-Project owner: **Ondřej Janošík** <br>
-
-## 💬 Community
-
-Join our [Discord server](https://discord.gg/hZRCcfWq) to discuss new features, implementation challenges or anything related to this plugin.
-
-### 🚀 Created with passion by [Notum Technologies](https://notum.cz/en)
-
-- Official STRAPI partner and Czech based custom development agency.
-- We're passionate about sharing our expertise with the open source community, which is why we developed this plugin. 🖤
-
-### 🎯 [How can Notum help you with your STRAPI project?](https://notum.cz/en/strapi/)
-
-✔️ We offer valuable assistance in developing custom STRAPI, web, and mobile apps to fulfill your requirements and goals.. <br>
-✔️ With a track record of 100+ projects, our open communication and exceptional project management skills provide us with the necessary tools to get your project across the finish line.<br>
-📅 To initiate a discussion about your Strapi project, feel free to reach out to us via email at sales@notum.cz. We're here to assist you!
+Fork owner: **Decrypt**
 
 ## 🔑 Keywords
 

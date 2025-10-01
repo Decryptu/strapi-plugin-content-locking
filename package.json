@@ -1,6 +1,6 @@
 {
   "name": "@notum-cz/strapi-plugin-record-locking",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Hey I am editing, don't change my content",
   "keywords": [],
   "homepage": "https://github.com/notum-cz/strapi-plugin-record-locking#readme",
@@ -76,8 +76,8 @@
     "styled-components": "^6.1.13"
   },
   "engines": {
-    "node": ">=14.19.1 <=20.x.x",
-    "npm": ">=6.0.0"
+    "node": ">=18.0.0 <=20.x.x",
+    "npm": ">=11.0.0"
   },
   "strapi": {
     "displayName": "Record locking",
