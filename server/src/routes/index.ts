@@ -1,3 +1,4 @@
+// server/src/routes/index.ts
 export default [
   {
     method: 'GET',

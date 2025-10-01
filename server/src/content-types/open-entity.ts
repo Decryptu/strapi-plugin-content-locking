@@ -1,3 +1,4 @@
+// server/src/content-types/open-entity.ts
 export default {
   kind: 'collectionType',
   collectionName: 'open-entity',

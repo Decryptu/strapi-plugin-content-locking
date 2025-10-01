@@ -1,3 +1,4 @@
+// server/src/index.ts
 /**
  * Application methods
  */

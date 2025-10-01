@@ -1,3 +1,4 @@
+// server/src/bootstrap.ts
 import type { Core } from '@strapi/strapi';
 import { Server } from 'socket.io';
 

@@ -1,3 +1,4 @@
+// server/src/controllers/controller.ts
 import type { Core } from '@strapi/strapi';
 import DEFAULT_TRANSPORTS from '../constants/transports';
 
