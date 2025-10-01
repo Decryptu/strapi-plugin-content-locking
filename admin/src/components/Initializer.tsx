@@ -1,3 +1,4 @@
+// admin/src/components/Initializer.tsx
 import { useEffect, useRef } from 'react';
 
 import { PLUGIN_ID } from '../pluginId';

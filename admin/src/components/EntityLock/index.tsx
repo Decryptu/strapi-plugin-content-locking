@@ -1,7 +1,8 @@
+// admin/src/components/EntityLock/index.tsx
 import { Button, Typography } from '@strapi/design-system';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { io, Socket } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
 
 import { useMatch, useNavigate } from 'react-router-dom';
 
@@ -9,15 +10,26 @@ import { Modal } from '@strapi/design-system';
 import { useAuth, useFetchClient } from '@strapi/strapi/admin';
 import { getTranslation } from '../../utils/getTranslation';
 
-const useLockingData = () => {
+interface LockingRequestData {
+  entityId: string;
+  entityDocumentId?: string;
+  userId: string | number;
+}
+
+interface LockingData {
+  requestData: LockingRequestData;
+  requestUrl: string;
+}
+
+const useLockingData = (): LockingData | null => {
   const collectionType = useMatch('/content-manager/collection-types/:entityId/:entityDocumentId');
   const singleType = useMatch('/content-manager/single-types/:entityId');
   const cloneCollectionType = useMatch('/content-manager/collection-types/:entityId/clone/:entityDocumentId');
   const user = useAuth('ENTITY_LOCK', (state) => state.user);
 
-  if (!user) return null;
+  if (!user || user.id === undefined) return null;
 
-  if (collectionType) {
+  if (collectionType?.params.entityId && collectionType?.params.entityDocumentId) {
     return {
       requestData: {
         entityId: collectionType.params.entityId,
@@ -26,7 +38,9 @@ const useLockingData = () => {
       },
       requestUrl: `/record-locking/get-status/${collectionType.params.entityId}/${collectionType.params.entityDocumentId}`,
     };
-  } else if (singleType) {
+  }
+  
+  if (singleType?.params.entityId) {
     return {
       requestData: {
         entityId: singleType.params.entityId,
@@ -34,7 +48,9 @@ const useLockingData = () => {
       },
       requestUrl: `/record-locking/get-status/${singleType.params.entityId}`,
     };
-  } else if (cloneCollectionType) {
+  }
+  
+  if (cloneCollectionType?.params.entityId && cloneCollectionType?.params.entityDocumentId) {
     return {
       requestData: {
         entityId: cloneCollectionType.params.entityId,
@@ -48,25 +64,51 @@ const useLockingData = () => {
   return null;
 };
 
-const useLockStatus = () => {
+interface Settings {
+  transports: string[];
+}
+
+interface LockStatus {
+  isLocked: boolean;
+  username: string;
+  attemptEntityLocking: () => Promise<void>;
+}
+
+const useLockStatus = (): LockStatus | null => {
   const { get } = useFetchClient();
   const lockingData = useLockingData();
 
   const socket = useRef<Socket | null>(null);
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('');
-  const [settings, setSettings] = useState<{ transports: Array<string> } | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
 
   useEffect(() => {
-    get('/record-locking/settings').then((response) => {
+    get<Settings>('/record-locking/settings').then((response) => {
       setSettings(response.data);
     });
-  }, []);
+  }, [get]);
+
+  const attemptEntityLocking = useCallback(async () => {
+    if (!lockingData?.requestUrl) return;
+
+    try {
+      const lockingResponse = await get<{ editedBy: string } | false>(lockingData.requestUrl);
+      if (!lockingResponse.data) {
+        socket.current?.emit('openEntity', lockingData.requestData);
+      } else {
+        setIsLocked(true);
+        setUsername(lockingResponse.data.editedBy);
+      }
+    } catch (error) {
+      console.warn(error);
+    }
+  }, [lockingData, get]);
 
   useEffect(() => {
     const token = localStorage.getItem('jwtToken') || sessionStorage.getItem('jwtToken');
 
-    if (token && lockingData && lockingData?.requestData.entityDocumentId !== 'create' && settings) {
+    if (token && lockingData && lockingData.requestData.entityDocumentId !== 'create' && settings) {
       socket.current = io(undefined, {
         reconnectionDelayMax: 10000,
         rejectUnauthorized: false,
@@ -82,28 +124,14 @@ const useLockStatus = () => {
     }
 
     return () => {
-      if (lockingData?.requestData.entityDocumentId !== 'create' && settings) {
-        socket.current?.emit('closeEntity', lockingData?.requestData);
+      if (lockingData && lockingData.requestData.entityDocumentId !== 'create' && settings) {
+        socket.current?.emit('closeEntity', lockingData.requestData);
         socket.current?.close();
       }
     };
-  }, [settings]);
+  }, [settings, lockingData, attemptEntityLocking]);
 
   if (!lockingData?.requestUrl) return null;
-
-  const attemptEntityLocking = async () => {
-    try {
-      const lockingResponse = await get(lockingData.requestUrl);
-      if (!lockingResponse.data) {
-        socket.current?.emit('openEntity', lockingData?.requestData);
-      } else {
-        setIsLocked(true);
-        setUsername(lockingResponse.data.editedBy);
-      }
-    } catch (error) {
-      console.warn(error);
-    }
-  };
 
   return {
     isLocked,
@@ -116,6 +144,7 @@ export default function EntityLock() {
   const navigate = useNavigate();
   const { formatMessage } = useIntl();
   const lockStatus = useLockStatus();
+  const titleId = useId();
 
   if (!lockStatus) return null;
 
@@ -124,7 +153,7 @@ export default function EntityLock() {
       <Modal.Root defaultOpen={true}>
         <Modal.Content>
           <Modal.Header>
-            <Typography fontWeight="bold" textColor="neutral800" as="h2" id="title">
+            <Typography fontWeight="bold" textColor="neutral800" as="h2" id={titleId}>
               {formatMessage({
                 id: getTranslation('ModalWindow.CurrentlyEditing'),
                 defaultMessage: 'This entry is currently edited',
