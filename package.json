@@ -43,7 +43,11 @@
     "test:ts:front": "bun x tsc -p admin/tsconfig.json",
     "verify": "node node_modules/@strapi/sdk-plugin/bin/strapi-plugin.js verify",
     "watch": "node node_modules/@strapi/sdk-plugin/bin/strapi-plugin.js watch",
-    "watch:link": "node node_modules/@strapi/sdk-plugin/bin/strapi-plugin.js watch:link"
+    "watch:link": "node node_modules/@strapi/sdk-plugin/bin/strapi-plugin.js watch:link",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "ci": "biome ci ."
   },
   "dependencies": {
     "@strapi/design-system": "^2.0.0-rc.11",
@@ -53,12 +57,12 @@
     "socket.io-client": "^4.8.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.2.4",
     "@strapi/sdk-plugin": "^5.2.6",
     "@strapi/strapi": "^5.4.0",
     "@strapi/typescript-utils": "^5.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.0",
-    "prettier": "^3.3.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
