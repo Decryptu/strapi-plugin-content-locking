@@ -74,21 +74,14 @@ const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
     }
 
     try {
-      const tokenService = strapi.service('admin::token');
-
-      if (!tokenService?.decodeJwtToken) {
-        return next(new Error('Token service unavailable'));
-      }
-
-      const decoded = await tokenService.decodeJwtToken(token);
-      const userId = decoded?.id || decoded?.payload?.id;
-
-      if (!userId) {
+      // Strapi v5 way to verify JWT
+      const { payload } = await strapi.admin.services.token.decodeJwtToken(token);
+      
+      if (!payload?.id) {
         return next(new Error('Invalid token'));
       }
 
-      // Attach user ID to socket for later use
-      socket.data.userId = userId;
+      socket.data.userId = payload.id;
       next();
     } catch (error) {
       strapi.log.error('[Record Locking] Authentication error:', error);
