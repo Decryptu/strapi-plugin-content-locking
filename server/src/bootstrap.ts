@@ -74,14 +74,27 @@ const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
     }
 
     try {
-      // Use Strapi's internal JWT verification
       const jwtSecret = strapi.config.get('admin.auth.secret');
-      const jwt = require('jsonwebtoken');
       
+      if (!jwtSecret) {
+        return next(new Error('JWT secret not configured'));
+      }
+
+      // Manual JWT verification using jsonwebtoken
+      const jwt = require('jsonwebtoken');
       const decoded = jwt.verify(token, jwtSecret);
       
       if (!decoded?.id) {
         return next(new Error('Invalid token'));
+      }
+
+      // Verify user still exists in database
+      const user = await strapi.db.query('admin::user').findOne({
+        where: { id: decoded.id }
+      });
+
+      if (!user) {
+        return next(new Error('User not found'));
       }
 
       socket.data.userId = decoded.id;
