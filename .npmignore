@@ -1,0 +1,10 @@
+admin/
+server/
+*.ts
+tsconfig*.json
+biome.json
+.github/
+.vscode/
+*.log
+node_modules/
+.DS_Store
