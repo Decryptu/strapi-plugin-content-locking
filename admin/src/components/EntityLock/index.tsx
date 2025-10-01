@@ -109,18 +109,27 @@ const useLockStatus = (): LockStatus | null => {
     const token = localStorage.getItem('jwtToken') || sessionStorage.getItem('jwtToken');
 
     if (token && lockingData && lockingData.requestData.entityDocumentId !== 'create' && settings) {
-      socket.current = io(undefined, {
+      const parsedToken = token.startsWith('"') ? JSON.parse(token) : token;
+      
+      socket.current = io({
         reconnectionDelayMax: 10000,
-        rejectUnauthorized: false,
-        auth: (cb) => {
-          cb({
-            token: JSON.parse(token),
-          });
+        auth: {
+          token: parsedToken,
         },
         transports: settings.transports,
       });
+
+      // Wait for connection before locking
+      socket.current.on('connect', () => {
+        console.log('[Record Locking] Socket connected');
+        attemptEntityLocking();
+      });
+
+      socket.current.on('connect_error', (error) => {
+        console.error('[Record Locking] Connection error:', error);
+      });
+
       socket.current.io.on('reconnect', attemptEntityLocking);
-      attemptEntityLocking();
     }
 
     return () => {

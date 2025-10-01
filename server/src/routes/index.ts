@@ -5,6 +5,14 @@ export default [
     path: '/settings',
     handler: 'controller.getSettings',
     config: {
+      policies: ['admin::isAuthenticatedAdmin'],
+    },
+  },
+  {
+    method: 'GET',
+    path: '/settings',
+    handler: 'controller.getSettings',
+    config: {
       policies: [],
     },
   },
